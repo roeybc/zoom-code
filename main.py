@@ -35,7 +35,7 @@ async def main():
     ) as client:
         # Ask Claude to explicitly use the Read tool on main.py first
         await client.query(
-            "Create a new pull request with a test.py file with 'hello world!' on Evently in github"
+            "Create a new pull request with a main.py file with 'hello world!' on zoom-hackathon-example in github"
         )
         
         # Stream responses (text, tool use, and tool results)

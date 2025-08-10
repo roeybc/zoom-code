@@ -4,6 +4,7 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from claude_code_sdk import ClaudeSDKClient, ClaudeCodeOptions
+from models import User
 from claude_code_sdk.types import TextBlock, ToolUseBlock, ToolResultBlock
 from dotenv import load_dotenv
 import os
@@ -31,6 +32,11 @@ mcp_servers = {
 class QueryRequest(BaseModel):
     query: str
 
+class UserCreateRequest(BaseModel):
+    name: str
+    email: str
+    address: str = None
+
 async def execute_claude_query(query: str) -> str:
     """Execute a query using Claude Code SDK and return the response"""
     response_text = []
@@ -39,7 +45,7 @@ async def execute_claude_query(query: str) -> str:
         options=ClaudeCodeOptions(
             system_prompt="You are a performance engineer",
             allowed_tools=["Bash", "Read", "WebSearch", "mcp__github"],
-            max_turns=5,
+            max_turns=50,
             cwd=Path(__file__).parent,
             add_dirs=[Path(__file__).parent],
             permission_mode="bypassPermissions",
@@ -63,6 +69,39 @@ async def execute_claude_query(query: str) -> str:
                         response_text.append(str(result))
     
     return "".join(response_text)
+
+# In-memory storage for demo purposes
+users_db = {}
+next_user_id = 1
+
+@app.post("/users", response_model=User)
+async def create_user(user_request: UserCreateRequest):
+    """Create a new user with address field"""
+    global next_user_id
+    user = User(
+        id=next_user_id,
+        name=user_request.name,
+        email=user_request.email,
+        address=user_request.address
+    )
+    users_db[next_user_id] = user
+    next_user_id += 1
+    return user
+
+@app.get("/users/{user_id}", response_model=User)
+async def get_user(user_id: int):
+    """Get a user by ID"""
+    if user_id not in users_db:
+        raise HTTPException(status_code=404, detail="User not found")
+    return users_db[user_id]
+
+@app.put("/users/{user_id}/address")
+async def update_user_address(user_id: int, address: str):
+    """Update a user's address"""
+    if user_id not in users_db:
+        raise HTTPException(status_code=404, detail="User not found")
+    users_db[user_id].address = address
+    return {"message": "Address updated successfully", "user": users_db[user_id]}
 
 @app.post("/execute")
 async def execute_query(request: QueryRequest):

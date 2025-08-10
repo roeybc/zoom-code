@@ -17,6 +17,7 @@ load_dotenv()
 app = FastAPI(title="Claude Code SDK API", description="API wrapper for Claude Code SDK")
 
 GITHUB_MCP_PAT = os.getenv("GITHUB_MCP_PAT")
+PROJECT_PATH = os.getenv("PROJECT_PATH")
 
 mcp_servers = {
     "github": {
@@ -31,17 +32,17 @@ mcp_servers = {
 class QueryRequest(BaseModel):
     query: str
 
-async def execute_claude_query(query: str) -> str:
-    """Execute a query using Claude Code SDK and return the response"""
-    response_text = []
+async def execute_claude_query(query: str) -> None:
+    """Execute a query using Claude Code SDK and log the response"""
+    logger.info(f"Executing query in background: {query}")
     
     async with ClaudeSDKClient(
         options=ClaudeCodeOptions(
             system_prompt="You are a performance engineer",
             allowed_tools=["Bash", "Read", "WebSearch", "mcp__github"],
-            max_turns=5,
-            cwd=Path(__file__).parent,
-            add_dirs=[Path(__file__).parent],
+            max_turns=50,
+            cwd=PROJECT_PATH,
+            add_dirs=[PROJECT_PATH],
             permission_mode="bypassPermissions",
             mcp_servers=mcp_servers,
         )
@@ -52,17 +53,17 @@ async def execute_claude_query(query: str) -> str:
             content = getattr(message, "content", [])
             for block in content:
                 if isinstance(block, TextBlock) and getattr(block, "text", None):
-                    response_text.append(block.text)
+                    logger.info(block.text)
                 elif isinstance(block, ToolUseBlock):
                     name = getattr(block, "name", "")
                     tool_input = getattr(block, "input", {})
-                    response_text.append(f"\n[tool_use] {name} {tool_input}\n")
+                    logger.info(f"ToolUse: {name} with input {tool_input}")
                 elif isinstance(block, ToolResultBlock):
                     result = getattr(block, "content", None)
                     if result is not None:
-                        response_text.append(str(result))
+                        logger.info(f"ToolResult: {result}")
     
-    return "".join(response_text)
+    logger.info(f"Background execution for query '{query}' finished.")
 
 @app.post("/execute")
 async def execute_query(request: QueryRequest):
@@ -70,9 +71,9 @@ async def execute_query(request: QueryRequest):
     logger.info(f"Received query: {request.query}")
     try:
         logger.info("Starting Claude SDK execution...")
-        result = await execute_claude_query(request.query)
-        logger.info("Claude SDK execution completed successfully")
-        return {"success": True, "result": result}
+        asyncio.create_task(execute_claude_query(request.query))
+        logger.info("Claude SDK execution enqueued successfully")
+        return {"success": True, "message": "Query execution started in the background."}
     except Exception as e:
         logger.error(f"Error executing query: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

@@ -8,6 +8,7 @@ import os
 load_dotenv()
 
 GITHUB_MCP_PAT = os.getenv("GITHUB_MCP_PAT")
+PROJECT_PATH = os.getenv("PROJECT_PATH")
 
 mcp_servers = {
     "github": {
@@ -24,10 +25,10 @@ async def main():
         options=ClaudeCodeOptions(
             system_prompt="You are a performance engineer",
             allowed_tools=["Bash", "Read", "WebSearch", "mcp__github"],
-            max_turns=5,
+            max_turns=50,
             # Ensure tools can access the project files
-            cwd=Path(__file__).parent,
-            add_dirs=[Path(__file__).parent],
+            cwd=PROJECT_PATH,
+            add_dirs=[PROJECT_PATH],
             # Avoid interactive permission prompts for tool calls
             permission_mode="bypassPermissions",
             mcp_servers=mcp_servers,
@@ -35,7 +36,7 @@ async def main():
     ) as client:
         # Ask Claude to explicitly use the Read tool on main.py first
         await client.query(
-            "Create a new pull request with a main.py file with 'hello world!' on zoom-hackathon-example in github"
+            "clone the repo zoom-hackathon-example, create a new branch, add an optional phone number to the user class, add an appropriate issue and pull request. Always return to main in the end of the run"
         )
         
         # Stream responses (text, tool use, and tool results)

@@ -38,7 +38,7 @@ async def execute_claude_query(query: str) -> None:
     
     async with ClaudeSDKClient(
         options=ClaudeCodeOptions(
-            system_prompt="You are a performance engineer",
+            system_prompt="You are a performance engineer. you're always working on the zoom-hackathon-example repo, whataver the user asks, always create an issue and a pull requst. Link the issue and the pull request. Always return to main in the end of the run. NEVER merge the pull request.",
             allowed_tools=["Bash", "Read", "WebSearch", "mcp__github"],
             max_turns=50,
             cwd=PROJECT_PATH,
